@@ -55,6 +55,7 @@
 - Node.js 18 or later
 - An AssemblyAI API key
 - A modern browser with microphone access
+- No dependency installation is required; the project uses Node.js built-ins.
 
 ### 1. Clone the repository
 
@@ -65,19 +66,48 @@ cd Voxhire
 
 ### 2. Configure environment variables
 
-Create a `.env` file in the project root and add your AssemblyAI API key:
+Create `.env` from the example file:
+
+```bash
+cp .env.example .env
+```
+
+In Windows PowerShell, use:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Add your AssemblyAI API key to `.env`:
 
 ```env
 ASSEMBLYAI_API_KEY=your_assemblyai_api_key
 ```
 
-Configure any additional environment variables required by your current deployment configuration. **Never commit API keys or other secrets to GitHub.**
+Keep the key private. `.env` is gitignored; never commit API keys or other secrets to GitHub.
 
-### 3. Install dependencies
+### 3. Publish an interview agent
 
-```bash
-npm install
+Publish the default VoxHire interviewer agent:
+
+```sh
+npm run publish
 ```
+
+To publish a different agent file from `agents/`, set `AGENT` when publishing. For example:
+
+```sh
+AGENT=http-tools npm run publish
+```
+
+In Windows PowerShell:
+
+```powershell
+$env:AGENT = "http-tools"
+npm run publish
+```
+
+Publishing saves the agent ID in `.env`. If you already have an agent in the AssemblyAI dashboard, import it with `npm run import <agent-id>`; then use the `AGENT=<name> npm start` command printed by the import step. In Windows PowerShell, set `$env:AGENT = "<name>"` using the name shown by import, then run `npm start`.
 
 ### 4. Start the application
 
@@ -85,7 +115,13 @@ npm install
 npm start
 ```
 
-Open the local URL printed by the server, or visit `http://localhost:3000` if the application is configured to use that port.
+Open the local URL printed by the server (usually `http://localhost:3000`). If you published a non-default agent, select it when starting the server:
+
+```sh
+AGENT=http-tools npm start
+```
+
+In Windows PowerShell, set `$env:AGENT = "http-tools"` before running `npm start`.
 
 ## ☁️ Deployment
 
