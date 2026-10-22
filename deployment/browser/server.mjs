@@ -983,6 +983,22 @@ async function clientApp() {
       const { token } =
         await res.json()
 
+      const agentResponse =
+        await fetch('/agent')
+
+      if (!agentResponse.ok) {
+        setStatus(
+          'error',
+          'could not load the published agent'
+        )
+
+        reset()
+        return
+      }
+
+      const agentConfig =
+        await agentResponse.json()
+
       captureCtx =
         new AudioContext({
           sampleRate: WIRE_RATE,
@@ -1111,7 +1127,15 @@ async function clientApp() {
           JSON.stringify({
             type: 'session.update',
             session: {
-              agent_id: AGENT.id,
+              system_prompt:
+                agentConfig.system_prompt,
+              greeting:
+                agentConfig.greeting,
+              output: {
+                voice:
+                  agentConfig.voice?.voice_id ||
+                  'anna',
+              },
             },
           })
         )
@@ -1119,7 +1143,7 @@ async function clientApp() {
         logEvent(
           'up',
           'session.update',
-          AGENT.id
+          'inline published agent config'
         )
       }
 
