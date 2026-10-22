@@ -354,6 +354,7 @@ async function clientApp() {
     )
 
   let ws
+  let startingCall = false
   let captureCtx
   let playbackCtx
   let playback
@@ -431,10 +432,18 @@ async function clientApp() {
     listMics
   )
 
-  $('btn').onclick = () =>
-    ws?.readyState <= 1
-      ? stop()
-      : start()
+  $('btn').onclick = () => {
+    if (ws?.readyState === 1) {
+      if (window.confirm('End this interview now? You can still review the report.')) stop()
+      return
+    }
+    start()
+  }
+
+  $('start-interview').onclick = start
+
+  $('retry-interview').onclick = start
+  $('retry-interview-live').onclick = start
 
   $('report-button').onclick =
     showInterviewReport
@@ -446,7 +455,16 @@ async function clientApp() {
       )
 
     $('log-toggle').textContent =
-      hidden ? 'Show' : 'Hide'
+      hidden ? 'Show diagnostics' : 'Hide diagnostics'
+    $('log-toggle').setAttribute('aria-expanded', String(!hidden))
+  }
+
+  $('return-home').onclick = () => {
+    if (ws?.readyState === 1 && !window.confirm('End the interview and return to the start screen?')) return
+    if (ws?.readyState === 1) stop()
+    $('interview-screen').hidden = true
+    $('landing').hidden = false
+    $('start-interview').focus()
   }
 
   // ---------------------------------------------------------------------------
@@ -739,8 +757,8 @@ async function clientApp() {
         String(state.questionCount || 0),
       ],
       [
-        'Difficulty',
-        String(state.difficulty || 1),
+        'Duration',
+        $('elapsed').textContent || '0:00',
       ],
     ]
 
@@ -777,6 +795,22 @@ async function clientApp() {
 
     body.append(overview)
 
+    const scores = Object.values(state.performance || {})
+      .filter(value => typeof value === 'number' && Number.isFinite(value))
+    const overall = scores.length
+      ? (scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(1)
+      : null
+    const assessment = document.createElement('section')
+    assessment.className = 'report-section'
+    assessment.append(makeReportHeading('Overall assessment'))
+    const assessmentText = document.createElement('p')
+    assessmentText.className = 'report-empty-large'
+    assessmentText.textContent = overall === null
+      ? 'No scored answers are available for an overall assessment yet.'
+      : `Average across the available technical knowledge, reasoning, problem-solving, and communication scores: ${overall}/10. Scores reflect AI-generated feedback from your recorded answers.`
+    assessment.append(assessmentText)
+    body.append(assessment)
+
     // Performance
     const performanceSection =
       document.createElement('section')
@@ -807,6 +841,32 @@ async function clientApp() {
     )
 
     
+    const insightsSection = document.createElement('section')
+    insightsSection.className = 'report-section'
+    insightsSection.append(makeReportHeading('AI-generated feedback'))
+    const insightGrid = document.createElement('div')
+    insightGrid.className = 'report-insight-grid'
+    const insightGroups = [
+      ['Strengths', state.insights?.strengths, 'No strengths recorded.'],
+      ['Areas to improve', state.insights?.weaknesses, 'No improvement areas recorded.'],
+      ['Knowledge gaps', state.insights?.knowledgeGaps, 'No knowledge gaps recorded.'],
+      ['Recommendations', state.insights?.recommendations, 'No recommendations recorded.'],
+    ]
+    for (const [title, items, emptyText] of insightGroups) {
+      const group = document.createElement('div')
+      group.className = 'report-insight-group'
+      const heading = document.createElement('h4')
+      heading.textContent = title
+      group.append(heading, makeReportList(items, emptyText))
+      insightGrid.append(group)
+    }
+    insightsSection.append(insightGrid)
+    const disclosure = document.createElement('p')
+    disclosure.className = 'report-empty-large'
+    disclosure.textContent = 'Feedback is AI-generated from the interview and is not an objective certification or hiring decision.'
+    insightsSection.append(disclosure)
+    body.append(insightsSection)
+
     // Answers
     const answersSection =
       document.createElement('section')
@@ -955,8 +1015,24 @@ async function clientApp() {
   // ---------------------------------------------------------------------------
 
   async function start() {
+    if (startingCall) return
+    startingCall = true
+    if (ws) {
+      const previous = ws
+      ws = null
+      previous.close()
+      releaseAudio()
+    }
     $('btn').disabled = true
     $('mic').disabled = true
+    $('return-home').disabled = true
+    $('start-interview').disabled = true
+    $('retry-interview').disabled = true
+    $('landing').hidden = true
+    $('interview-screen').hidden = false
+    $('connection-error').hidden = true
+    $('connection-error-live').hidden = true
+    $('session-hint').textContent = 'Preparing your interview…'
 
     setStatus('connecting')
 
@@ -971,9 +1047,10 @@ async function clientApp() {
         await fetch('/token')
 
       if (!res.ok) {
+        showConnectionError('Could not prepare a secure voice session. Please try again.')
         setStatus(
           'error',
-          'could not mint a token, check the API key'
+          'Could not connect'
         )
 
         reset()
@@ -987,9 +1064,10 @@ async function clientApp() {
         await fetch('/agent')
 
       if (!agentResponse.ok) {
+        showConnectionError('Could not load the interviewer configuration. Please try again.')
         setStatus(
           'error',
-          'could not load the published agent'
+          'Could not connect'
         )
 
         reset()
@@ -1189,12 +1267,14 @@ async function clientApp() {
             setStatus(
               'listening'
             )
+            $('session-hint').textContent = 'You’re connected. The interviewer will begin shortly.'
 
             $('btn').disabled =
               false
+            $('btn').hidden = false
 
             $('btn').textContent =
-              'End call'
+              'End interview'
 
             $('btn').classList.add(
               'live'
@@ -1385,6 +1465,7 @@ async function clientApp() {
             setStatus(
               'listening'
             )
+            $('session-hint').textContent = 'Listening to your response'
 
             logEvent(
               'down',
@@ -1401,6 +1482,7 @@ async function clientApp() {
             setStatus(
               'speaking'
             )
+            $('session-hint').textContent = 'Your interviewer is speaking'
 
             logEvent(
               'down',
@@ -1454,6 +1536,7 @@ async function clientApp() {
             setStatus(
               'listening'
             )
+            $('session-hint').textContent = 'Your turn — speak when you’re ready'
 
             if (
               msg.status ===
@@ -1621,6 +1704,9 @@ async function clientApp() {
             lastUserTranscript =
               transcript
 
+            setStatus('processing')
+            $('session-hint').textContent = 'Response received. Preparing the next question…'
+
             addLine(
               'you',
               msg.text
@@ -1748,6 +1834,8 @@ async function clientApp() {
               decision.intent === 'end' &&
               interviewState.status === 'completed'
             ) {
+              setStatus('completed')
+              $('session-hint').textContent = 'Interview complete. Your report is ready.'
               insightsRequested = true
 
               console.log(
@@ -1830,6 +1918,10 @@ async function clientApp() {
           // -------------------------------------------------------------------
 
           case 'session.ended':
+            if (interviewState.status === 'completed') {
+              setStatus('completed')
+              $('session-hint').textContent = 'Interview complete. Your report is ready.'
+            }
             logEvent(
               'down',
               msg.type
@@ -1844,10 +1936,10 @@ async function clientApp() {
           // -------------------------------------------------------------------
 
           case 'session.error':
+            showConnectionError('The voice session encountered a problem. You can retry the connection.')
             setStatus(
               'error',
-              msg.message ||
-                'AssemblyAI session error'
+              'Connection issue'
             )
 
             logEvent(
@@ -1868,29 +1960,45 @@ async function clientApp() {
         }
       }
 
-      ws.onclose = () => {
-        setStatus('idle')
+      ws.onclose = (event) => {
+        if (ws !== event.currentTarget) return
+        ws = null
+        releaseAudio()
+        if ($('status').classList.contains('error')) {
+          showConnectionError('The connection closed. Check your connection and try again.')
+        } else if (interviewState.status !== 'completed') {
+          setStatus('idle')
+        }
         reset()
 
         // Do NOT reset interviewState here.
         // The report must remain available after the call ends.
       }
 
-      ws.onerror = () => {
+      ws.onerror = (event) => {
+        if (ws !== event.currentTarget) return
+        releaseAudio()
+        showConnectionError('Could not reach the voice service. Check your connection and retry.')
         setStatus(
           'error',
-          'connection failed'
+          'Connection issue'
         )
 
         reset()
       }
     } catch (error) {
+      releaseAudio()
+      showConnectionError(error?.name === 'NotAllowedError'
+        ? 'Microphone access was blocked. Allow microphone access in your browser, then try again.'
+        : 'Could not start the interview. Check your microphone and connection, then try again.')
       setStatus(
         'error',
-        error.message
+        'Could not connect'
       )
 
       reset()
+    } finally {
+      startingCall = false
     }
   }
 
@@ -1904,7 +2012,8 @@ async function clientApp() {
     if (
       ws?.readyState === 1
     ) {
-      ws.send(
+      const socket = ws
+      socket.send(
         JSON.stringify({
           type: 'session.end',
         })
@@ -1915,7 +2024,7 @@ async function clientApp() {
         'session.end'
       )
 
-      const socket = ws
+      ws = null
 
       setTimeout(() => {
         if (
@@ -1925,30 +2034,23 @@ async function clientApp() {
         }
       }, 3000)
     } else {
-      ws?.close()
+      const socket = ws
+      ws = null
+      socket?.close()
     }
 
-    playback?.port.postMessage(
-      'stop'
-    )
-
-    mic
-      ?.getTracks()
-      .forEach((track) =>
-        track.stop()
-      )
-
-    captureCtx?.close()
-    playbackCtx?.close()
-
-    captureCtx =
-      playbackCtx =
-      playback =
-      mic =
-        null
-
+    releaseAudio()
     reset()
     setStatus('idle')
+    $('session-hint').textContent = 'Interview ended. Your report is ready to review.'
+  }
+
+  function releaseAudio() {
+    playback?.port.postMessage('stop')
+    mic?.getTracks().forEach(track => track.stop())
+    captureCtx?.close()
+    playbackCtx?.close()
+    captureCtx = playbackCtx = playback = mic = null
   }
 
   // ---------------------------------------------------------------------------
@@ -1966,15 +2068,22 @@ async function clientApp() {
 
     open.clear()
 
-    $('btn').disabled = false
+    $('btn').disabled = true
     $('mic').disabled = false
+    $('return-home').disabled = false
 
     $('btn').textContent =
-      'Start call'
+      'End interview'
 
     $('btn').classList.remove(
       'live'
     )
+    $('btn').textContent = 'End interview'
+    $('btn').disabled = true
+    $('btn').hidden = true
+    $('mic').disabled = false
+    $('start-interview').disabled = false
+    $('retry-interview').disabled = false
   }
 
   function setStatus(
@@ -1986,6 +2095,24 @@ async function clientApp() {
 
     $('status-text').textContent =
       detail || state
+    $('voice-orb').dataset.state = state
+    $('voice-state').textContent = ({
+      idle: 'Ready when you are',
+      connecting: 'Connecting to your interviewer…',
+      listening: 'Listening',
+      speaking: 'Interviewer speaking',
+      processing: 'Thinking through your answer',
+      error: detail || 'Connection issue',
+      completed: 'Interview complete',
+    })[state] || state
+  }
+
+  function showConnectionError(message) {
+    $('connection-error').hidden = false
+    $('connection-error-text').textContent = message
+    $('connection-error-live').hidden = false
+    $('connection-error-text-live').textContent = message
+    $('session-hint').textContent = 'The voice session needs attention.'
   }
 
   const COST_PER_SECOND =
@@ -2006,6 +2133,7 @@ async function clientApp() {
       String(
         seconds % 60
       ).padStart(2, '0')
+    $('elapsed-live').textContent = $('elapsed').textContent
 
     $('cost').textContent =
       '$' +
@@ -2415,1031 +2543,895 @@ const HTML = `<!DOCTYPE html>
 <style>
 
   :root {
-    --page-bg: #fdfcf8;
-    --surface: #fff;
-    --surface-alt: #f5f3eb;
-    --border: #dad7cb;
-    --text: #4a4945;
-    --text-dark: #1d1b16;
-    --text-muted: #777673;
-    --text-faint: #a5a4a2;
-    --purple: #3923c7;
-    --green: #01762f;
-    --error: #f04438;
-    --radius: 12px;
+    color-scheme: dark;
+    --page-bg: #080d19;
+    --surface: #101827;
+    --surface-raised: #151f31;
+    --surface-soft: #0c1422;
+    --border: #263349;
+    --text: #dce5f3;
+    --text-strong: #f4f7fc;
+    --text-muted: #9caec5;
+    --text-faint: #72839a;
+    --accent: #8b9cff;
+    --accent-strong: #aab5ff;
+    --green: #67d7ae;
+    --amber: #f3c879;
+    --error: #ff8d98;
+    --radius: 18px;
   }
-
-  *,
-  *::before,
-  *::after {
+  *,*::before,*::after {
     box-sizing: border-box;
+  }
+  html,body {
+    min-height: 100%;
+  }
+  body {
     margin: 0;
-    padding: 0;
-  }
-
-  html,
-  body {
-    height: 100%;
-  }
-
-  body {
-    font-family:
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif;
-
-    font-size: 16px;
-    line-height: 1.3;
-
     color: var(--text);
-    background: var(--page-bg);
-
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-
-    padding: 24px 20px 20px;
+    background: radial-gradient(ellipse at 50% -20%,#1b2948 0,transparent 52%),var(--page-bg);
+    font: 15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-
+  button,select {
+    font: inherit;
+  }
+  button {
+    color: inherit;
+  }
+  button:focus-visible,select:focus-visible,summary:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
   main {
-    width: 100%;
-    max-width: 1088px;
-
-    flex: 1;
-
+    width: min(1120px,calc(100% - 48px));
+    min-height: 100vh;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-
-    min-height: 0;
-    gap: 16px;
   }
-
   header {
+    height: 78px;
     display: flex;
     align-items: center;
     gap: 16px;
-
-    padding-bottom: 16px;
-
-    border-bottom:
-      1px solid var(--border);
+    border-bottom: 1px solid rgba(156,174,197,.15);
   }
-
-  h1 {
-    font-family: Georgia, serif;
-    font-size: 28px;
-    font-weight: 400;
-
-    color: var(--text-dark);
-
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    color: var(--text-strong);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -.03em;
     margin-right: auto;
   }
-
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #52628a;
+    border-radius: 10px;
+    color: var(--accent-strong);
+    background: #1c2943;
+  }
+  .brand-mark svg {
+    width: 19px;
+    height: 19px;
+  }
   .status {
     display: flex;
     align-items: center;
     gap: 8px;
-
     color: var(--text-muted);
+    font-size: 13px;
   }
-
   .status::before {
     content: "";
-
-    width: 7px;
-    height: 7px;
-
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-
-    background:
-      currentColor;
+    background: currentColor;
   }
-
   .status.listening {
     color: var(--green);
   }
-
   .status.speaking {
-    color: var(--purple);
+    color: var(--accent-strong);
   }
-
+  .status.connecting,.status.processing {
+    color: var(--amber);
+  }
   .status.error {
     color: var(--error);
-    font-size: 14px;
   }
-
   .meter {
     display: flex;
     gap: 10px;
-
-    font-family: monospace;
-    font-size: 12px;
-
     color: var(--text-faint);
+    font: 12px ui-monospace,monospace;
   }
-
-  #elapsed {
-    min-width: 34px;
-    text-align: right;
-  }
-
   #cost {
-    min-width: 48px;
-    text-align: right;
-  }
-
-  .panes {
-    flex: 1 1 0;
-    min-height: 0;
-
-    display: grid;
-
-    grid-template-columns:
-      minmax(0, 1fr)
-      360px;
-
-    gap: 16px;
-  }
-
-  .main-column {
-    min-width: 0;
-    min-height: 0;
-
-    display: flex;
-    flex-direction: column;
-  }
-
-  body.no-side .panes {
-    grid-template-columns: 1fr;
-  }
-
-  body.no-side #side {
     display: none;
   }
-
-  .pane {
+  button {
+    min-height: 46px;
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #101426;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .18s ease,border-color .18s ease,transform .18s ease;
+  }
+  button:hover:not(:disabled) {
+    background: var(--accent-strong);
+    transform: translateY(-1px);
+  }
+  button:disabled {
+    opacity: .58;
+    cursor: wait;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  button.secondary:hover:not(:disabled) {
+    background: var(--surface-raised);
+  }
+  button.danger {
+    background: transparent;
+    color: #ffabb1;
+    border-color: #70434d;
+  }
+  button.danger:hover:not(:disabled) {
+    background: #2c1b27;
+  }
+  select {
+    min-height: 44px;
+    max-width: 100%;
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .landing {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    padding: 48px 0 72px;
+  }
+  .landing-inner {
+    width: min(890px,100%);
+    display: grid;
+    grid-template-columns: 1.05fr .95fr;
+    align-items: center;
+    gap: 64px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 22px;
+    color: var(--accent-strong);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 22px;
+    height: 1px;
+    background: currentColor;
+  }
+  h2,h3,h4,p {
+    margin-top: 0;
+  }
+  .landing h2 {
+    max-width: 520px;
+    margin-bottom: 20px;
+    color: var(--text-strong);
+    font-size: clamp(42px,6vw,64px);
+    line-height: 1.04;
+    letter-spacing: -.055em;
+  }
+  .landing h2 span {
+    color: var(--accent-strong);
+  }
+  .lead {
+    max-width: 470px;
+    margin-bottom: 30px;
+    color: var(--text-muted);
+    font-size: 17px;
+  }
+  .start-row {
     display: flex;
-    flex-direction: column;
-
-    min-height: 0;
-
-    background:
-      var(--surface);
-
-    border:
-      1px solid var(--border);
-
-    border-radius:
-      var(--radius);
-
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .start-row button {
+    min-width: 172px;
+  }
+  .mic-note {
+    max-width: 195px;
+    color: var(--text-faint);
+    font-size: 12px;
+  }
+  .error-box {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid #70434d;
+    border-radius: 12px;
+    background: #251823;
+    color: #ffd4d7;
+  }
+  .error-box p {
+    margin: 0 0 10px;
+  }
+  .voice-art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 350px;
+    border: 1px solid rgba(156,174,197,.15);
+    border-radius: 30px;
+    background: linear-gradient(145deg,rgba(28,42,68,.88),rgba(13,21,35,.85));
     overflow: hidden;
   }
-
-  .main-column > .pane {
-    flex: 1 1 auto;
+  .voice-art::before,.voice-art::after {
+    content: "";
+    position: absolute;
+    width: 270px;
+    height: 270px;
+    border: 1px solid rgba(139,156,255,.12);
+    border-radius: 50%;
   }
-
+  .voice-art::after {
+    width: 340px;
+    height: 340px;
+  }
+  .art-core {
+    z-index: 1;
+    width: 148px;
+    height: 148px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #6375ac;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 30%,#354878,#17233e 68%);
+    box-shadow: 0 0 90px rgba(111,130,228,.18);
+    color: #c4ceff;
+  }
+  .art-core svg {
+    width: 74px;
+    height: 74px;
+  }
+  .art-label {
+    position: absolute;
+    z-index: 2;
+    bottom: 26px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .process {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 12px;
+    margin-top: 26px;
+  }
+  .process-step {
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .process-step strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .interview-screen {
+    flex: 1;
+    padding: 34px 0 48px;
+  }
+  .interview-top {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+  .interview-top h2 {
+    margin: 0 auto 0 0;
+    color: var(--text-strong);
+    font-size: 22px;
+    letter-spacing: -.03em;
+  }
+  .interview-grid {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 300px;
+    gap: 18px;
+    align-items: stretch;
+    min-width: 0;
+  }
+  .voice-panel,.transcript-panel,.side-pane {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(16,24,39,.88);
+  }
+  .voice-panel {
+    min-height: 365px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    text-align: center;
+  }
+  .voice-orb {
+    width: 122px;
+    height: 122px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 21px;
+    border: 1px solid #415177;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 32%,#354878,#17233e 72%);
+    color: #c4ceff;
+    transition: box-shadow .3s ease,transform .3s ease;
+  }
+  .voice-orb svg {
+    width: 48px;
+    height: 48px;
+  }
+  .voice-orb[data-state="speaking"] {
+    box-shadow: 0 0 0 14px rgba(139,156,255,.08),0 0 58px rgba(139,156,255,.28);
+  }
+  .voice-orb[data-state="listening"] {
+    box-shadow: 0 0 0 12px rgba(103,215,174,.07);
+  }
+  .voice-orb[data-state="error"] {
+    border-color: #9b535c;
+  }
+  .voice-panel h3 {
+    margin-bottom: 5px;
+    color: var(--text-strong);
+    font-size: 20px;
+  }
+  .voice-panel p {
+    min-height: 25px;
+    margin-bottom: 24px;
+    color: var(--text-muted);
+  }
+  .session-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .mic-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .mic-control select {
+    min-height: 34px;
+    max-width: 190px;
+    border: 0;
+    background: transparent;
+    font-size: 12px;
+  }
+  .transcript-panel {
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
   .pane-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-
-    gap: 16px;
-
-    padding: 10px 16px;
-
-    background:
-      var(--surface-alt);
-
-    border-bottom:
-      1px solid var(--border);
-
-    color:
-      var(--text-muted);
+    gap: 12px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 650;
   }
-
   .pane-body {
     flex: 1;
-
     min-height: 0;
-
     overflow-y: auto;
-
-    padding: 16px;
+    padding: 18px;
   }
-
-  .empty {
-    color:
-      var(--text-faint);
-
-    font-size: 14px;
-  }
-
   #transcript {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
   }
-
+  .empty {
+    color: var(--text-faint);
+    font-size: 13px;
+  }
   .line {
     display: flex;
-    gap: 12px;
-
-    font-size: 16px;
-    line-height: 1.4;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 14px;
+    line-height: 1.55;
   }
-
   .who {
-    width: 88px;
-    flex-shrink: 0;
-
-    color:
-      var(--text-faint);
-
-    padding-top: 3px;
-
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    color: var(--accent-strong);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
   }
-
-  .line.agent .said {
-    color:
-      var(--text-dark);
+  .line.you .who {
+    color: var(--green);
   }
-
+  .line .said {
+    color: var(--text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
   .line.partial .said {
-    color:
-      var(--text-muted);
+    color: var(--text-muted);
   }
-
   .line.tool {
-    font-family: monospace;
-    font-size: 13px;
-
-    color:
-      var(--purple);
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    color: var(--text-faint);
+    font: 11px/1.5 ui-monospace,monospace;
   }
-
   .line.tool .said {
-    word-break: break-all;
+    color: var(--text-faint);
+    overflow-wrap: anywhere;
   }
-
   .pane-foot {
     display: flex;
-    gap: 8px;
-
     align-items: center;
-
-    padding: 12px 16px;
-
-    background:
-      var(--surface-alt);
-
-    border-top:
-      1px solid var(--border);
+    gap: 12px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
   }
-
-  button {
-    height: 40px;
-
-    padding: 0 24px;
-
-    margin-left: auto;
-
-    border: none;
-    border-radius: 4px;
-
-    background:
-      var(--purple);
-
-    color: white;
-
-    font-family: monospace;
-    font-size: 14px;
-
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-
-    cursor: pointer;
-  }
-
-  button:hover:not(:disabled) {
-    opacity: .85;
-  }
-
-  button:disabled {
-    opacity: .55;
-    cursor: default;
-  }
-
-  button.live {
-    background:
-      var(--error);
-  }
-
-  select {
-    flex: 0 1 220px;
-    min-width: 0;
-
-    height: 40px;
-
-    padding: 0 8px;
-
-    font-family: inherit;
-    font-size: 13px;
-
-    color:
-      var(--text-muted);
-
-    background:
-      var(--surface);
-
-    border:
-      1px solid var(--border);
-
-    border-radius: 4px;
-  }
-
-  .report-actions {
-    flex: 0 0 auto;
-
-    display: flex;
-    justify-content: flex-end;
-
-    padding:
-      14px 0 0;
-  }
-
   #report-button {
-    margin-left: 0;
+    margin-left: auto;
   }
-
-  #side {
-    min-height: 0;
+  .side-pane {
+    margin-top: 18px;
+    overflow: hidden;
   }
-
-  #events-body {
-    font-family: monospace;
+  body.no-side #side {
+    display: none;
+  }
+  .ghost {
+    min-height: 32px;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--text-faint);
     font-size: 12px;
-    line-height: 1.8;
   }
-
+  .ghost:hover:not(:disabled) {
+    background: transparent;
+    color: var(--accent-strong);
+  }
+  .tabs {
+    display: flex;
+    gap: 10px;
+  }
+  .tab.on {
+    color: var(--text-strong);
+  }
+  #events-body {
+    font: 11px/1.8 ui-monospace,monospace;
+  }
   .event {
     display: flex;
     gap: 8px;
-
     align-items: baseline;
-
     white-space: nowrap;
   }
-
-  .event .at {
-    color:
-      var(--text-faint);
-
-    min-width: 44px;
-
-    text-align: right;
+  .event .at,.event .dir,.event .count {
+    color: var(--text-faint);
   }
-
-  .event .dir,
-  .event .count {
-    color:
-      var(--text-faint);
-  }
-
-  .event .count:empty,
-  .event .detail:empty {
-    display: none;
-  }
-
   .event .type {
-    color:
-      var(--text-dark);
+    color: var(--text);
   }
-
   .event.up .type {
-    color:
-      var(--text-muted);
+    color: var(--text-muted);
   }
-
   .event .detail {
-    color:
-      var(--text-faint);
-
     overflow: hidden;
-
+    color: var(--text-faint);
     white-space: nowrap;
-
     text-overflow: ellipsis;
   }
-
-  .ghost {
-    height: auto;
-
-    margin-left: 0;
-
-    padding: 0;
-
-    background:
-      transparent;
-
-    color:
-      var(--text-faint);
-
-    font-size: 12px;
-  }
-
-  .ghost:hover:not(:disabled) {
-    background:
-      transparent;
-
-    color:
-      var(--purple);
-  }
-
-  .tabs {
-    display: flex;
-    gap: 16px;
-  }
-
-  .tab.on {
-    color:
-      var(--text-dark);
-  }
-
   #agent-body pre {
-    font-family: monospace;
-    font-size: 12px;
-    line-height: 1.6;
-
+    font: 11px/1.6 ui-monospace,monospace;
     white-space: pre-wrap;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
-
+  .report-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 16px 0 0;
+  }
   #report-dialog {
-    width:
-      min(900px, calc(100vw - 32px));
-
-    max-height:
-      calc(100vh - 48px);
-
+    width: min(900px,calc(100vw - 32px));
+    max-height: calc(100vh - 40px);
     padding: 0;
-
-    border:
-      1px solid var(--border);
-
-    border-radius:
-      var(--radius);
-
-    background:
-      var(--surface);
-
-    color:
-      var(--text);
-
-    box-shadow:
-      0 24px 80px
-      rgba(29, 27, 22, .22);
-
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 24px 80px rgba(0,0,0,.55);
     overflow: hidden;
   }
-
   #report-dialog::backdrop {
-    background:
-      rgba(29, 27, 22, .42);
+    background: rgba(4,8,16,.78);
   }
-
   .report-dialog-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-
     gap: 16px;
-
-    padding:
-      18px 22px;
-
-    background:
-      var(--surface-alt);
-
-    border-bottom:
-      1px solid var(--border);
+    padding: 18px 22px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
   }
-
   .report-dialog-head h2 {
-    font-family: Georgia, serif;
-    font-size: 24px;
-    font-weight: 400;
-
-    color:
-      var(--text-dark);
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 22px;
   }
-
   .report-dialog-actions {
     display: flex;
     gap: 8px;
   }
-
   .report-dialog-actions button {
     margin-left: 0;
   }
-
   .report-close {
-    background:
-      var(--surface);
-
-    color:
-      var(--text-muted);
-
-    border:
-      1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    border-color: var(--border);
   }
-
   #report-body {
-    max-height:
-      calc(100vh - 145px);
-
-    overflow-y: auto;
-
-    padding: 22px;
+    max-height: calc(100vh - 125px);
+    overflow: auto;
+    padding: 24px;
   }
-
   .report-overview {
     display: grid;
-
-    grid-template-columns:
-      repeat(4, minmax(0, 1fr));
-
+    grid-template-columns: repeat(4,minmax(0,1fr));
     gap: 10px;
-
     margin-bottom: 22px;
   }
-
   .report-overview-item {
     display: flex;
     flex-direction: column;
-
     gap: 4px;
-
     padding: 14px;
-
-    border:
-      1px solid var(--border);
-
-    border-radius: 8px;
-
-    background:
-      var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-raised);
   }
-
   .report-meta-label {
-    color:
-      var(--text-faint);
-
-    font-family: monospace;
+    color: var(--text-muted);
     font-size: 11px;
-
+    letter-spacing: .08em;
     text-transform: uppercase;
-    letter-spacing: .8px;
   }
-
   .report-overview-item strong {
-    color:
-      var(--text-dark);
-
+    color: var(--text-strong);
     font-size: 15px;
   }
-
   .report-section {
     margin-top: 22px;
   }
-
   .report-section h3 {
     margin-bottom: 12px;
-
-    color:
-      var(--text-dark);
-
-    font-size: 18px;
-    font-weight: 500;
+    color: var(--text-strong);
+    font-size: 17px;
   }
-
   .report-score {
     margin-bottom: 12px;
   }
-
   .report-score-top {
     display: flex;
     justify-content: space-between;
-
     gap: 12px;
-
     margin-bottom: 6px;
-
-    font-size: 14px;
+    font-size: 13px;
   }
-
   .report-score-top strong {
-    color:
-      var(--text-dark);
+    color: var(--text-strong);
   }
-
   .report-score-track {
     width: 100%;
     height: 8px;
-
     overflow: hidden;
-
     border-radius: 99px;
-
-    background:
-      var(--surface-alt);
-
-    border:
-      1px solid var(--border);
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
   }
-
   .report-score-fill {
     height: 100%;
-
     border-radius: inherit;
-
-    background:
-      var(--purple);
-
-    transition:
-      width .2s ease;
+    background: var(--accent);
   }
-
   .report-insight-grid {
     display: grid;
-
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-
-    gap: 14px;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 12px;
   }
-
   .report-insight-group {
     padding: 14px;
-
-    border:
-      1px solid var(--border);
-
-    border-radius: 8px;
-
-    background:
-      var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-raised);
   }
-
   .report-insight-group h4 {
-    margin-bottom: 8px;
-
-    color:
-      var(--text-dark);
-
+    margin: 0 0 8px;
+    color: var(--text-strong);
     font-size: 14px;
-    font-weight: 600;
   }
-
   .report-list {
     padding-left: 18px;
-
-    color:
-      var(--text-muted);
-
-    font-size: 14px;
+    color: var(--text-muted);
+    font-size: 13px;
   }
-
-  .report-list li + li {
+  .report-list li+li {
     margin-top: 5px;
   }
-
   .report-empty {
     list-style: none;
-
     margin-left: -18px;
-
-    color:
-      var(--text-faint);
+    color: var(--text-faint);
   }
-
   .report-empty-large {
-    color:
-      var(--text-faint);
-
-    font-size: 14px;
+    color: var(--text-muted);
+    font-size: 13px;
   }
-
   .report-answers {
     display: flex;
     flex-direction: column;
-
-    gap: 14px;
+    gap: 12px;
   }
-
   .report-answer {
     padding: 16px;
-
-    border:
-      1px solid var(--border);
-
-    border-radius: 8px;
-
-    background:
-      var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-raised);
   }
-
   .report-answer h4 {
-    margin-bottom: 12px;
-
-    color:
-      var(--text-dark);
-
-    font-size: 15px;
+    margin: 0 0 12px;
+    color: var(--text-strong);
+    font-size: 14px;
   }
-
   .report-answer-block {
     margin-top: 10px;
   }
-
   .report-answer-label {
     display: block;
-
     margin-bottom: 4px;
-
-    color:
-      var(--text-faint);
-
-    font-family: monospace;
-    font-size: 11px;
-
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: .08em;
     text-transform: uppercase;
-    letter-spacing: .7px;
   }
-
   .report-answer-block p {
-    color:
-      var(--text);
-
-    font-size: 14px;
-
+    margin: 0;
+    color: var(--text);
+    font-size: 13px;
     white-space: pre-wrap;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
-
   .report-evaluation {
     margin-top: 14px;
-
     padding-top: 12px;
-
-    border-top:
-      1px solid var(--border);
+    border-top: 1px solid var(--border);
   }
-
   .report-evaluation-item {
     display: flex;
     justify-content: space-between;
-
     gap: 16px;
-
     padding: 5px 0;
-
-    font-size: 13px;
+    font-size: 12px;
   }
-
   .report-evaluation-item span {
-    color:
-      var(--text-muted);
+    color: var(--text-muted);
   }
-
   .report-evaluation-item strong {
-    color:
-      var(--text-dark);
+    color: var(--text-strong);
   }
-
   [hidden] {
     display: none !important;
   }
-
-  @media (max-width: 880px) {
-    .panes {
-      grid-template-columns: 1fr;
-
-      grid-template-rows:
-        minmax(420px, 1fr)
-        176px;
+  @media (max-width:880px) {
+    .landing-inner {
+      gap: 32px;
     }
-
-    body.no-side .panes {
-      grid-template-rows:
-        minmax(420px, 1fr);
+    .interview-grid {
+      grid-template-columns: minmax(0,1fr);
     }
-
+    .transcript-panel {
+      min-height: 260px;
+    }
     .report-overview {
-      grid-template-columns:
-        repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2,minmax(0,1fr));
     }
   }
-
-  @media (max-width: 600px) {
-    body {
-      padding:
-        16px 12px;
+  @media (max-width:600px) {
+    main {
+      width: calc(100% - 32px);
     }
-
     header {
+      height: 66px;
+    }
+    .brand {
+      font-size: 16px;
+    }
+    .status {
+      font-size: 11px;
+    }
+    .meter {
+      display: none;
+    }
+    .landing {
+      padding: 38px 0 52px;
+    }
+    .landing-inner {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+    .landing h2 {
+      font-size: 44px;
+    }
+    .lead {
+      font-size: 15px;
+    }
+    .voice-art {
+      min-height: 230px;
+      border-radius: 22px;
+    }
+    .voice-art::before {
+      width: 190px;
+      height: 190px;
+    }
+    .voice-art::after {
+      width: 250px;
+      height: 250px;
+    }
+    .art-core {
+      width: 112px;
+      height: 112px;
+    }
+    .art-core svg {
+      width: 58px;
+      height: 58px;
+    }
+    .process {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .process-step {
+      padding: 10px 0;
+    }
+    .interview-screen {
+      padding: 22px 0 36px;
+    }
+    .interview-top {
       flex-wrap: wrap;
+      gap: 10px;
     }
-
-    h1 {
+    .interview-top h2 {
       width: 100%;
-      margin-right: 0;
+      order: -1;
+      font-size: 19px;
     }
-
-    .report-actions {
-      justify-content: stretch;
+    .voice-panel {
+      min-height: 310px;
+      padding: 22px 16px;
     }
-
+    .voice-orb {
+      width: 100px;
+      height: 100px;
+    }
+    .session-actions {
+      width: 100%;
+    }
+    .session-actions>button {
+      flex: 1;
+    }
+    .mic-control {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .mic-control select {
+      max-width: 62%;
+    }
+    .pane-foot {
+      flex-wrap: wrap;
+      padding: 12px;
+    }
     #report-button {
       width: 100%;
+      margin-left: 0;
     }
-
-    .report-overview,
-    .report-insight-grid {
+    .report-overview,.report-insight-grid {
       grid-template-columns: 1fr;
     }
-
     #report-dialog {
-      width:
-        calc(100vw - 20px);
-
-      max-height:
-        calc(100vh - 20px);
+      width: calc(100vw - 20px);
+      max-height: calc(100vh - 20px);
     }
-
     #report-body {
-      max-height:
-        calc(100vh - 120px);
-
+      max-height: calc(100vh - 115px);
       padding: 16px;
     }
   }
-
+  @media (prefers-reduced-motion:reduce) {
+    *,*::before,*::after {
+      scroll-behavior: auto !important;
+      transition: none !important;
+      animation: none !important;
+    }
+  }
 </style>
 
 </head>
 
-<body>
+<body class="no-side">
 
 <main>
-
 <header>
-
-  <h1>
-    VoxHire Interviewer
-  </h1>
-
-  <span
-    class="status idle"
-    id="status"
-  >
-    <span id="status-text">
-      idle
-    </span>
-  </span>
-
-  <span class="meter">
-    <span id="elapsed">
-      0:00
-    </span>
-
-    <span id="cost">
-      $0.000
-    </span>
-  </span>
-
+  <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10v4m4-8v12m4-15v18m4-13v8m4-5v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>VoxHire</div>
+  <span class="status idle" id="status" aria-live="polite"><span id="status-text">Ready</span></span>
+  <span class="meter" aria-label="Interview duration"><span id="elapsed">0:00</span><span id="cost">$0.000</span></span>
 </header>
-
-<div class="panes">
-
-  <div class="main-column">
-
-    <section class="pane">
-
-      <div class="pane-head">
-        <span>
-          Transcript
-        </span>
-      </div>
-
-      <div
-        class="pane-body"
-        id="transcript"
-      >
-        <div class="empty">
-          Start the call and talk.
-          Partial transcripts appear
-          as they stream.
-        </div>
-      </div>
-
-      <div class="pane-foot">
-
-        <select
-          id="mic"
-          aria-label="Microphone"
-        >
-          <option value="">
-            Default microphone
-          </option>
-        </select>
-
-        <button id="btn">
-          Start call
-        </button>
-
-      </div>
-
-    </section>
-
-    <div class="report-actions">
-
-      <button
-        id="report-button"
-        type="button"
-      >
-        View Interview Report
-      </button>
-
+<section class="landing" id="landing" aria-labelledby="landing-title">
+  <div class="landing-inner">
+    <div>
+      <span class="eyebrow">Adaptive voice interviews</span>
+      <h2 id="landing-title">Meet your next <span>technical interviewer.</span></h2>
+      <p class="lead">Practice a real technical conversation with an AI interviewer that listens, follows up, and adapts questions to your answers.</p>
+      <div class="start-row"><button id="start-interview" type="button">Start interview <span aria-hidden="true">→</span></button><span class="mic-note">You’ll be asked to allow microphone access before the conversation begins.</span></div>
+      <div class="error-box" id="connection-error" role="alert" hidden><p id="connection-error-text"></p><button class="secondary" id="retry-interview" type="button">Try again</button></div>
+      <div class="process" aria-label="Interview steps"><div class="process-step"><strong>01 · Choose a topic</strong>Tell the interviewer what you want to practice.</div><div class="process-step"><strong>02 · Talk it through</strong>Answer aloud; questions adapt as you go.</div><div class="process-step"><strong>03 · Review feedback</strong>See your recorded answers and assessment.</div></div>
     </div>
-
+    <div class="voice-art" aria-hidden="true"><div class="art-core"><svg viewBox="0 0 72 72" fill="none"><path d="M12 30v12m12-24v36m12-48v60m12-42v24m12-18v12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg></div><div class="art-label">A focused space to think out loud</div></div>
   </div>
-
-  <section
-    class="pane"
-    id="side"
-  >
-
-    <div class="pane-head">
-
-      <span class="tabs">
-
-        <button
-          class="ghost tab on"
-          id="tab-events"
-          type="button"
-        >
-          Events
-        </button>
-
-        <button
-          class="ghost tab"
-          id="tab-agent"
-          type="button"
-        >
-          Agent
-        </button>
-
-      </span>
-
-      <button
-        class="ghost"
-        id="log-toggle"
-        type="button"
-      >
-        Hide
-      </button>
-
-    </div>
-
-    <div
-      class="pane-body"
-      id="events-body"
-    >
-      <div class="empty">
-        WebSocket events will appear here.
-      </div>
-    </div>
-
-    <div
-      class="pane-body"
-      id="agent-body"
-      hidden
-    >
-      <div class="empty">
-        Loading the published agent.
-      </div>
-    </div>
-
-  </section>
-
-</div>
-
+</section>
+<section class="interview-screen" id="interview-screen" aria-labelledby="interview-title" hidden>
+  <div class="interview-top"><h2 id="interview-title">Your interview</h2><span class="meter"><span id="elapsed-live">0:00</span></span><button class="secondary" id="return-home" type="button">Back to start</button></div>
+  <div class="interview-grid">
+    <section class="voice-panel" aria-label="Voice session controls">
+      <div class="voice-orb" id="voice-orb" data-state="idle" aria-hidden="true"><svg viewBox="0 0 72 72" fill="none"><path d="M12 30v12m12-24v36m12-48v60m12-42v24m12-18v12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg></div>
+      <h3 id="voice-state" aria-live="polite">Ready when you are</h3><p id="session-hint">Choose Start interview when you’re ready.</p>
+      <div class="error-box" id="connection-error-live" role="alert" hidden><p id="connection-error-text-live"></p><button class="secondary" id="retry-interview-live" type="button">Try again</button></div>
+      <div class="session-actions"><label class="mic-control" for="mic">Microphone<select id="mic" aria-label="Select microphone"><option value="">Default microphone</option></select></label><button class="danger" id="btn" type="button" disabled hidden>End interview</button></div>
+    </section>
+    <section class="transcript-panel" aria-label="Live conversation transcript"><div class="pane-head"><span>Conversation</span><span class="empty">Live transcript</span></div><div class="pane-body" id="transcript" aria-live="polite" aria-relevant="additions text"><div class="empty">Your conversation will appear here as you speak.</div></div></section>
+  </div>
+  <div class="report-actions"><button class="secondary" id="report-button" type="button">View interview report</button></div>
+  <section class="side-pane" id="side" aria-label="Technical diagnostics"><div class="pane-head"><span class="tabs"><button class="ghost tab on" id="tab-events" type="button">Connection events</button><button class="ghost tab" id="tab-agent" type="button">Agent config</button></span><button class="ghost" id="log-toggle" type="button" aria-expanded="false">Show diagnostics</button></div><div class="pane-body" id="events-body"><div class="empty">Connection events will appear here.</div></div><div class="pane-body" id="agent-body" hidden><div class="empty">Loading agent configuration…</div></div></section>
+</section>
 </main>
 
 <dialog id="report-dialog">
