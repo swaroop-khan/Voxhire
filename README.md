@@ -1,4 +1,4 @@
-# VoxHire — Adaptive AI Technical Interviewer
+# VoxHire - Adaptive AI Technical Interviewer
 
 **VoxHire** is an AI-powered voice interview platform designed to simulate technical interviews through real-time voice interaction. Built with AssemblyAI's Voice Agent technology, it aims to make technical interview practice more interactive, conversational, and adaptive.
 
@@ -10,7 +10,7 @@
 
 ---
 
-## ✨ Features
+## ⚙️ Features
 
 - **Real-Time Voice Interviews:** Interact with an AI interviewer through a browser-based voice interface.
 - **Technical Interview Practice:** Designed around technical questions and interview-style conversations.
@@ -111,4 +111,4 @@ The server hosts the web application and handles the creation of voice-agent ses
 
 ---
 
-*VoxHire — Making technical interview practice more interactive through AI-powered voice conversations.*
+*VoxHire - Making technical interview practice more interactive through AI-powered voice conversations.*
