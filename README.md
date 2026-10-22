@@ -141,9 +141,10 @@ Render reads [render.yaml](render.yaml) and prompts for exactly one value, `ASSE
 | --- | --- | --- |
 | `ASSEMBLYAI_API_KEY` | prompted | Stays on the server. Never sent to the page. |
 | `AGENT` | `minimal` | Which `agents/<name>.jsonc` the service publishes when it boots. |
-| `AGENT_ID` | empty | Paste an id from your `.env` to serve that exact agent, whichever file it came from. |
+| `AGENT_ID` | empty | Optional production agent id. Set only an id verified in the same AssemblyAI account and region as this service. |
+| `AGENTS_API_BASE` | `https://agents.assemblyai.com/v1` | AssemblyAI REST endpoint. The browser WebSocket host is derived from this setting so both use the same region. |
 
-Leaving `AGENT_ID` empty is fine. The service publishes `AGENT` on boot, and on later restarts it updates the agent of that name rather than creating another one. Setting it is still better, since the deployment then uses the same agent you tested locally and your phone number answers with.
+Leaving `AGENT_ID` empty is fine. The service publishes `AGENT` on boot, and on later restarts it updates the matching agent by name. A local `.env` id is not automatically used in production; configure `AGENT_ID` only after verifying that it belongs to the production AssemblyAI account and the region selected by `AGENTS_API_BASE`. For an EU account, set the corresponding EU REST endpoint; the browser socket follows that region automatically.
 
 Anyone with the URL can start sessions billed to that key.
 

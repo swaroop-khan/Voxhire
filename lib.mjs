@@ -195,6 +195,17 @@ export function readAgent(name) {
 const agentsApi = () =>
   process.env.AGENTS_API_BASE || 'https://agents.assemblyai.com/v1'
 
+// Keep the Voice Agent WebSocket in the same region as agent CRUD and token
+// requests. In particular, an EU agent id cannot be resolved by the US socket.
+export function voiceAgentWsUrl() {
+  const endpoint = new URL(agentsApi())
+  endpoint.protocol = endpoint.protocol === 'http:' ? 'ws:' : 'wss:'
+  endpoint.pathname = `${endpoint.pathname.replace(/\/+$/, '')}/ws`
+  endpoint.search = ''
+  endpoint.hash = ''
+  return endpoint.toString()
+}
+
 export class ApiError extends Error {
   constructor(label, status, body) {
     super(`${label} failed (${status}): ${body}`)

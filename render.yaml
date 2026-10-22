@@ -14,8 +14,10 @@ services:
       # Which agents/<name>.jsonc the service publishes on boot.
       - key: AGENT
         value: minimal
-      # Paste an id from your .env here to serve that exact agent. Left empty,
-      # the service publishes AGENT itself and reuses the agent of the same
-      # name on later restarts.
+      # REST, token, and browser WebSocket traffic must use the same region.
+      - key: AGENTS_API_BASE
+        value: https://agents.assemblyai.com/v1
+      # Optional id verified in this production account and region. Left empty,
+      # the service publishes AGENT and reuses the matching name on restarts.
       - key: AGENT_ID
         value: ''

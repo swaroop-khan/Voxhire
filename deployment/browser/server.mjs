@@ -11,6 +11,7 @@ import {
   readAgent,
   required,
   storedAgentId,
+  voiceAgentWsUrl,
 } from '../../lib.mjs'
 
 loadEnv()
@@ -67,6 +68,7 @@ const AGENT = await (async () => {
 })()
 
 console.log(`Agent: ${AGENT.id}`)
+console.log(`Voice Agent WebSocket: ${voiceAgentWsUrl()}`)
 
 // -----------------------------------------------------------------------------
 // Browser client
@@ -1040,7 +1042,7 @@ async function clientApp() {
 
       const url =
         new URL(
-          'wss://agents.assemblyai.com/v1/ws'
+          AGENT.wsUrl
         )
 
       url.searchParams.set(
@@ -3446,7 +3448,7 @@ const HTML = `<!DOCTYPE html>
 
 <script>
 window.AGENT =
-${JSON.stringify(AGENT).replace(
+${JSON.stringify({ ...AGENT, wsUrl: voiceAgentWsUrl() }).replace(
   /</g,
   '\\u003c'
 )}
@@ -3750,7 +3752,7 @@ server.on(
     ) {
       port += 1
 
-      server.listen(port)
+      server.listen(port, '0.0.0.0')
 
       return
     }
@@ -3768,4 +3770,4 @@ server.on(
   }
 )
 
-server.listen(port)
+server.listen(port, '0.0.0.0')
