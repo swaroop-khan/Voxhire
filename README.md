@@ -1,150 +1,135 @@
-# VoxHire - Adaptive AI Technical Interviewer
+# VoxHire: Adaptive AI Technical Interviewer
 
-**VoxHire** is an AI-powered voice interview platform designed to simulate technical interviews through real-time voice interaction. Built with AssemblyAI's Voice Agent technology, it aims to make technical interview practice more interactive, conversational, and adaptive.
+VoxHire is a browser-based voice interviewer for technical interview practice. It uses the AssemblyAI Voice Agent API to conduct a spoken interview, adapt follow-up questions, evaluate answers, and show an interview report.
 
 <p align="center">
-  <a href="https://voice-agent-r3fb.onrender.com"><strong>🚀 Try the Live Demo</strong></a>
+  <a href="https://voice-agent-r3fb.onrender.com"><strong>🚀 Try the live demo</strong></a>
   &nbsp; | &nbsp;
-  <a href="https://github.com/swaroop-khan/Voxhire"><strong>💻 Source Code</strong></a>
+  <a href="https://github.com/swaroop-khan/Voxhire"><strong>💻 View the source</strong></a>
 </p>
 
----
+## Features
 
-## ⚙️ Features
+- Browser-based, real-time voice interviews.
+- Candidate-selected technical topics and adaptive follow-up questions.
+- Answer evaluation across technical knowledge, reasoning, problem solving, and communication.
+- Interview summary with scores, feedback, and recorded answers.
+- Microphone selection and live transcript.
 
-- **Real-Time Voice Interviews:** Interact with an AI interviewer through a browser-based voice interface.
-- **Technical Interview Practice:** Designed around technical questions and interview-style conversations.
-- **Adaptive Interview Flow:** Uses interview state and LLM-based reasoning to guide the conversation based on candidate responses.
-- **Voice Agent Integration:** Powered by the AssemblyAI Voice Agent API for conversational audio interactions.
-- **Web-Based Deployment:** Hosted on Render so users can access the application online.
-- **Interview Evaluation Workflow:** Designed to support a structured interview experience and a final interview report.
+## How it works
 
-## 🛠️ Tech Stack
+1. The Node.js server publishes or loads the configured AssemblyAI agent and mints a short-lived session token.
+2. The browser connects directly to AssemblyAI's Voice Agent WebSocket. The API key stays on the server.
+3. The browser tracks interview state and evaluation results during the session and renders the report.
 
-| Technology | Purpose |
-|---|---|
-| JavaScript | Application and interview logic |
-| Node.js | Server-side runtime |
-| AssemblyAI Voice Agent API | Real-time voice interaction |
-| WebSockets | Live communication |
-| Render | Hosting and deployment |
+Interview state and reports are held in the browser for the current session; this project does not persist them to a database.
 
-## 🚀 Try VoxHire
+## Try the live demo
 
-**Live application:** [https://voice-agent-r3fb.onrender.com](https://voice-agent-r3fb.onrender.com)
+Open [VoxHire on Render](https://voice-agent-r3fb.onrender.com), allow microphone access, and select **Start call**. The page requires HTTPS or localhost for microphone access.
 
-1. Open the live application.
-2. Allow microphone access when prompted.
-3. Start a voice interview.
-4. Respond to the interviewer's questions naturally and follow the conversation.
+The demo is public: anyone with the link can start a session, and usage is billed to the AssemblyAI account configured for the service. The Render free plan may take about a minute to wake after 15 minutes without traffic. See [Render's free service limits](https://render.com/docs/free).
 
-*Note: The initial page load may take longer if the hosted service has been idle.*
+## Run locally
 
-## 🧠 How It Works
+### Requirements
 
-1. **Interview Initialization:** The application initializes the voice interview session.
-2. **Voice Interaction:** The candidate communicates with the AI interviewer through the browser.
-3. **Interview Reasoning:** The interview logic uses the conversation state and LLM-based reasoning to guide the next steps.
-4. **Interview Progression:** The interview proceeds according to the current interview state and candidate responses.
-5. **Reporting:** The workflow is designed to support a final interview report.
+- Node.js 18 or later.
+- An AssemblyAI API key.
+- A modern browser with microphone access.
 
-## ⚙️ Run Locally
-
-### Prerequisites
-
-- Node.js 18 or later
-- An AssemblyAI API key
-- A modern browser with microphone access
-- No dependency installation is required; the project uses Node.js built-ins.
+No `npm install` is needed; the app uses Node.js built-ins.
 
 ### 1. Clone the repository
 
-```bash
+```sh
 git clone https://github.com/swaroop-khan/Voxhire.git
 cd Voxhire
 ```
 
-### 2. Configure environment variables
+### 2. Configure the API key
 
-Create `.env` from the example file:
+Copy the example environment file and add your key:
 
-```bash
+```sh
 cp .env.example .env
 ```
 
-In Windows PowerShell, use:
+On Windows PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Add your AssemblyAI API key to `.env`:
+Edit `.env` and set `ASSEMBLYAI_API_KEY`. Keep this file private; `.env` is gitignored and must not be committed.
 
-```env
-ASSEMBLYAI_API_KEY=your_assemblyai_api_key
+### 3. Start the app
+
+```sh
+npm start
 ```
 
-Keep the key private. `.env` is gitignored; never commit API keys or other secrets to GitHub.
+On first startup, the server publishes `agents/minimal.jsonc` or reuses the matching agent in your AssemblyAI account. Open the local URL printed in the terminal, usually <http://localhost:3000>.
 
-### 3. Publish an interview agent
-
-Publish the default VoxHire interviewer agent:
+To publish explicitly before starting:
 
 ```sh
 npm run publish
+npm start
 ```
 
-To publish a different agent file from `agents/`, set `AGENT` when publishing. For example:
+To select another agent file, set `AGENT` before publishing or starting. For example, in a Unix-like shell:
 
 ```sh
-AGENT=http-tools npm run publish
+AGENT=keyterms npm run publish
+AGENT=keyterms npm start
 ```
 
 In Windows PowerShell:
 
 ```powershell
-$env:AGENT = "http-tools"
+$env:AGENT = 'keyterms'
 npm run publish
-```
-
-Publishing saves the agent ID in `.env`. If you already have an agent in the AssemblyAI dashboard, import it with `npm run import <agent-id>`; then use the `AGENT=<name> npm start` command printed by the import step. In Windows PowerShell, set `$env:AGENT = "<name>"` using the name shown by import, then run `npm start`.
-
-### 4. Start the application
-
-```bash
 npm start
 ```
 
-Open the local URL printed by the server (usually `http://localhost:3000`). If you published a non-default agent, select it when starting the server:
+To import an existing dashboard agent into a local file, run `npm run import YOUR_AGENT_ID` and follow the command printed by the script. Some integrations also need credentials in `.env`; see the selected file under [`agents/`](agents/).
 
-```sh
-AGENT=http-tools npm start
-```
+## Deploy on Render
 
-In Windows PowerShell, set `$env:AGENT = "http-tools"` before running `npm start`.
+This repository includes [`render.yaml`](render.yaml) for a Render web service. To create your own deployment, connect this GitHub repository in Render and deploy it as a Blueprint. Render prompts for `ASSEMBLYAI_API_KEY`; add it as a secret environment variable.
 
-## ☁️ Deployment
+The Blueprint defaults are:
 
-VoxHire is deployed on [Render](https://render.com/).
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AGENT` | `minimal` | Selects `agents/minimal.jsonc`. |
+| `AGENT_ID` | Empty | Optional. Leave empty to publish or reuse the agent by name. Only set an ID verified in the same AssemblyAI account and region. |
+| `AGENTS_API_BASE` | `https://agents.assemblyai.com/v1` | AssemblyAI's US REST endpoint. The browser WebSocket URL follows this region. |
 
-The server hosts the web application and handles the creation of voice-agent sessions. The AssemblyAI API key should remain server-side and be configured through Render's environment settings.
+The local `.env` is not used by Render. A local agent ID is not automatically valid in production. If your AssemblyAI account is pinned to another region, set the matching REST endpoint in `AGENTS_API_BASE`.
 
-- **Live Demo:** [VoxHire on Render](https://voice-agent-r3fb.onrender.com)
-- **Repository:** [swaroop-khan/Voxhire](https://github.com/swaroop-khan/Voxhire)
+When auto-deploy is enabled, pushes to the service's linked Git branch trigger a new deployment. See [Render's deploy guide](https://render.com/docs/deploys).
 
-## 📚 References
+## Project layout
 
-- [AssemblyAI Voice Agent API Documentation](https://www.assemblyai.com/docs/voice-agents/voice-agent-api)
-- [Node.js Documentation](https://nodejs.org/en/docs)
-- [Render Documentation](https://render.com/docs)
+| Path | Purpose |
+| --- | --- |
+| `agents/` | Agent configurations, including the default `minimal.jsonc`. |
+| `deployment/browser/server.mjs` | Node.js web server, browser client, and `/agent` and `/token` routes. |
+| `interview/state.mjs` | In-memory interview state and score aggregation. |
+| `interview/controller.mjs` | Applies interview decisions and records questions and answers. |
+| `interview/report.mjs` | Standalone helper for generating report data. |
+| `lib.mjs` | Environment loading, agent publishing, and AssemblyAI API calls. |
 
-## 👨‍💻 Author
+The browser's report UI is implemented in `deployment/browser/server.mjs`; it currently does not import `interview/report.mjs`.
 
-**Swaroop Khan**
+## References
 
-- [GitHub](https://github.com/swaroop-khan)
-- [LinkedIn](https://www.linkedin.com/in/swaroop-khan/)
+- [AssemblyAI Voice Agent API](https://www.assemblyai.com/docs/voice-agents/voice-agent-api)
+- [AssemblyAI browser integration](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/browser-integration)
+- [Render documentation](https://render.com/docs)
 
----
+## Author
 
-*VoxHire - Making technical interview practice more interactive through AI-powered voice conversations.*
+**Swaroop Khan** · [GitHub](https://github.com/swaroop-khan) · [LinkedIn](https://www.linkedin.com/in/swaroop-khan/)
