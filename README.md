@@ -1,200 +1,114 @@
-<img src="assemblyai.png" width="500"/>
+# VoxHire — Adaptive AI Technical Interviewer
+
+**VoxHire** is an AI-powered voice interview platform designed to simulate technical interviews through real-time voice interaction. Built with AssemblyAI's Voice Agent technology, it aims to make technical interview practice more interactive, conversational, and adaptive.
+
+<p align="center">
+  <a href="https://voice-agent-r3fb.onrender.com"><strong>🚀 Try the Live Demo</strong></a>
+  &nbsp; | &nbsp;
+  <a href="https://github.com/swaroop-khan/Voxhire"><strong>💻 Source Code</strong></a>
+</p>
 
 ---
 
-[![Voice Agent API](https://img.shields.io/badge/docs-Voice%20Agent%20API-2545E6)](https://www.assemblyai.com/docs/voice-agents/voice-agent-api)
-[![Node](https://img.shields.io/badge/node-%E2%89%A518-5FA04E?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](package.json)
-[![AssemblyAI Twitter](https://img.shields.io/twitter/follow/AssemblyAI?label=%40AssemblyAI&style=social)](https://twitter.com/AssemblyAI)
-[![AssemblyAI YouTube](https://img.shields.io/youtube/channel/subscribers/UCtatfZMf-8EkIwASXM4ts0A)](https://www.youtube.com/@AssemblyAI)
+## ✨ Features
 
-# AssemblyAI Voice Agent Starter for JS
+- **Real-Time Voice Interviews:** Interact with an AI interviewer through a browser-based voice interface.
+- **Technical Interview Practice:** Designed around technical questions and interview-style conversations.
+- **Adaptive Interview Flow:** Uses interview state and LLM-based reasoning to guide the conversation based on candidate responses.
+- **Voice Agent Integration:** Powered by the AssemblyAI Voice Agent API for conversational audio interactions.
+- **Web-Based Deployment:** Hosted on Render so users can access the application online.
+- **Interview Evaluation Workflow:** Designed to support a structured interview experience and a final interview report.
 
-Voice agents defined as JSON files. Publish one to your AssemblyAI account, then talk to it in a browser tab or by calling a phone number.
+## 🛠️ Tech Stack
 
-Each file in [agents/](agents/) is the request body for `POST /v1/agents`. The starter sends it unchanged, saves the agent ID it gets back to `.env`, and both deployments connect using that ID. An agent you already have goes the other way, `npm run import <agent-id>` turns it into one of these files. Built on the [AssemblyAI Voice Agent API](https://www.assemblyai.com/products/voice-agent-api). Node 18 or later, no dependencies.
+| Technology | Purpose |
+|---|---|
+| JavaScript | Application and interview logic |
+| Node.js | Server-side runtime |
+| AssemblyAI Voice Agent API | Real-time voice interaction |
+| WebSockets | Live communication |
+| Render | Hosting and deployment |
 
-There is a [Python version of this repo](https://github.com/AssemblyAI/voice-agent-starter-python) with the same agents and the same steps.
+## 🚀 Try VoxHire
 
-## Quickstart
+**Live application:** [https://voice-agent-r3fb.onrender.com](https://voice-agent-r3fb.onrender.com)
 
-### 1. Clone
+1. Open the live application.
+2. Allow microphone access when prompted.
+3. Start a voice interview.
+4. Respond to the interviewer's questions naturally and follow the conversation.
 
-```sh
-git clone https://github.com/AssemblyAI/voice-agent-starter-js
-cd voice-agent-starter-js
-cp .env.example .env
+*Note: The initial page load may take longer if the hosted service has been idle.*
+
+## 🧠 How It Works
+
+1. **Interview Initialization:** The application initializes the voice interview session.
+2. **Voice Interaction:** The candidate communicates with the AI interviewer through the browser.
+3. **Interview Reasoning:** The interview logic uses the conversation state and LLM-based reasoning to guide the next steps.
+4. **Interview Progression:** The interview proceeds according to the current interview state and candidate responses.
+5. **Reporting:** The workflow is designed to support a final interview report.
+
+## ⚙️ Run Locally
+
+### Prerequisites
+
+- Node.js 18 or later
+- An AssemblyAI API key
+- A modern browser with microphone access
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/swaroop-khan/Voxhire.git
+cd Voxhire
 ```
 
-### 2. Add your key
+### 2. Configure environment variables
 
-From [assemblyai.com/dashboard/api-keys](https://www.assemblyai.com/dashboard/api-keys):
+Create a `.env` file in the project root and add your AssemblyAI API key:
 
-```sh
-# .env
-ASSEMBLYAI_API_KEY=your_key_here
+```env
+ASSEMBLYAI_API_KEY=your_assemblyai_api_key
 ```
 
-### 3. Get an agent
+Configure any additional environment variables required by your current deployment configuration. **Never commit API keys or other secrets to GitHub.**
 
-Publish one of the examples:
+### 3. Install dependencies
 
-```sh
-npm run publish                       # agents/minimal.jsonc
-# AGENT=http-tools npm run publish    # or any other file in agents/
+```bash
+npm install
 ```
 
-Or import one you already have, shaped in the playground or the dashboard:
+### 4. Start the application
 
-```sh
-npm run import <agent-id>          # writes agents/<its-name>.jsonc
-```
-
-Either way you end up with the same pair: a file in `agents/` and its id in `.env` as `AGENT_ID_<NAME>`. Publishing again updates that agent rather than creating another, and each file keeps its own, so switching with `AGENT=` never overwrites the last one.
-
-### 4. Talk to it
-
-```sh
+```bash
 npm start
 ```
 
-Open http://localhost:3000 and start the call.
+Open the local URL printed by the server, or visit `http://localhost:3000` if the application is configured to use that port.
 
-### 5. Put it on a phone number
+## ☁️ Deployment
 
-```sh
-# .env
-TWILIO_ACCOUNT_SID=AC...                          # console.twilio.com, top of the page
-TWILIO_AUTH_TOKEN=your_token_here                 # same place, hidden until you click it
-TWILIO_PHONE_NUMBER=+15551234567                  # a number already in your account, E.164
-TWILIO_TRUNK_DOMAIN=acme-agent.pstn.twilio.com    # a name you invent, must end .pstn.twilio.com
-```
+VoxHire is deployed on [Render](https://render.com/).
 
-The trunk domain does not exist yet. You are naming the SIP trunk that gets created for you, and the name has to be unique across all of Twilio, so put something specific to you in front of `.pstn.twilio.com`. The phone number does have to exist already: buy one under Phone Numbers in the Twilio console first.
+The server hosts the web application and handles the creation of voice-agent sessions. The AssemblyAI API key should remain server-side and be configured through Render's environment settings.
 
-```sh
-npm run phone
-```
+- **Live Demo:** [VoxHire on Render](https://voice-agent-r3fb.onrender.com)
+- **Repository:** [swaroop-khan/Voxhire](https://github.com/swaroop-khan/Voxhire)
 
-This creates the trunk, routes it to AssemblyAI, attaches your number to it, and binds the agent. Then call the number. Details in [deployment/telephony](deployment/telephony/).
+## 📚 References
+
+- [AssemblyAI Voice Agent API Documentation](https://www.assemblyai.com/docs/voice-agents/voice-agent-api)
+- [Node.js Documentation](https://nodejs.org/en/docs)
+- [Render Documentation](https://render.com/docs)
+
+## 👨‍💻 Author
+
+**Swaroop Khan**
+
+- [GitHub](https://github.com/swaroop-khan)
+- [LinkedIn](https://www.linkedin.com/in/swaroop-khan/)
 
 ---
 
-## Core examples
-
-Nine agent files. Four demonstrate a parameter, five demonstrate an integration.
-
-| `AGENT=` | Demonstrates | Requires |
-| --- | --- | --- |
-| [`minimal`](agents/minimal.jsonc) | the three required fields, and the defaults applied to the rest | |
-| [`keyterms`](agents/keyterms.jsonc) | biasing transcription toward names and jargon | |
-| [`turn-taking`](agents/turn-taking.jsonc) | silence thresholds and interruption handling | |
-| [`byo-llm`](agents/byo-llm.jsonc) | Claude through the AssemblyAI gateway, or your own endpoint | |
-| [`http-tools`](agents/http-tools.jsonc) | tools that AssemblyAI calls on the agent's behalf | |
-| [`exa-search`](agents/exa-search.jsonc) | web search during a call | `EXA_API_KEY` |
-| [`airtable-crm`](agents/airtable-crm.jsonc) | reading a caller record and writing one back | `AIRTABLE_*` |
-| [`cal-booking`](agents/cal-booking.jsonc) | checking availability, then booking a slot | `CAL_*` |
-| [`dtmf`](agents/dtmf.jsonc) | PCI compliance: card entry on the keypad, never in the transcript, the logs or the model | `DTMF_WEBHOOK_URL` |
-
-```sh
-AGENT=exa-search npm run publish
-npm start
-```
-
-To write your own, copy the closest file: `cp agents/http-tools.jsonc agents/my-agent.jsonc`. Every field is commented, with a link to the documentation page that defines it.
-
-## Importing an agent
-
-The playground is the quickest way to shape an agent. This is how it moves into code without being rebuilt by hand:
-
-```sh
-npm run import 8f3c1e2a-...
-```
-
-It writes `agents/<name>.jsonc`, the live agent as a file, headed with the id it came from. It records `AGENT_ID_<NAME>` in `.env`, so `npm run publish` sends a `PUT` to that same agent instead of creating a second one. It drops `id`, `created_at` and `updated_at`, which are not part of a create request. And it refuses to overwrite an existing file unless you pass `AGENT=<other-name>` or `OVERWRITE=1`.
-
-Credentials are the one thing it cannot recover. Tool header values and `llm[].api_key` are write-only on the API, so they come back blank. The import names the ones to restore, and they belong in `.env`, referenced from the file as `${VARS}`:
-
-```
-Header values are write-only and did not come back for: lookup.
-Put them in .env and reference them as ${VARS}.
-```
-
-From there it behaves like any other file in `agents/`: edit it, publish, call.
-
-## Where it answers
-
-| | | |
-| --- | --- | --- |
-| [Browser](deployment/browser/) | `npm start` | Serves a page with a call button and mints session tokens. The API key stays on the server. |
-| [Phone](deployment/telephony/) | `npm run phone` | Configures a Twilio SIP trunk and attaches the agent to your number. |
-
-Twilio passes the call to AssemblyAI over SIP, so nothing in this repo sits in the audio path.
-
-## Hosting the browser app
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/AssemblyAI/voice-agent-starter-js)
-
-Render reads [render.yaml](render.yaml) and prompts for exactly one value, `ASSEMBLYAI_API_KEY`, because that is the only variable marked `sync: false`. It sets `PORT` itself. The other two arrive with defaults you can change under Environment on the service:
-
-| Variable | Default | What it does |
-| --- | --- | --- |
-| `ASSEMBLYAI_API_KEY` | prompted | Stays on the server. Never sent to the page. |
-| `AGENT` | `minimal` | Which `agents/<name>.jsonc` the service publishes when it boots. |
-| `AGENT_ID` | empty | Optional production agent id. Set only an id verified in the same AssemblyAI account and region as this service. |
-| `AGENTS_API_BASE` | `https://agents.assemblyai.com/v1` | AssemblyAI REST endpoint. The browser WebSocket host is derived from this setting so both use the same region. |
-
-Leaving `AGENT_ID` empty is fine. The service publishes `AGENT` on boot, and on later restarts it updates the matching agent by name. Browser sessions load the published agent configuration from the server and send its prompt, greeting, and voice inline, avoiding failures when the Voice Agent WebSocket cannot resolve a stored agent ID. A local `.env` id is not automatically used in production; configure `AGENT_ID` only after verifying that it belongs to the production AssemblyAI account and the region selected by `AGENTS_API_BASE`. For an EU account, set the corresponding EU REST endpoint; the browser socket follows that region automatically.
-
-Anyone with the URL can start sessions billed to that key.
-
-## How it works
-
-```
-  copy an example                     npm run import <id>
-  or write your own                   an agent you already have
-           │                                   │
-           ▼                                   ▼
-agents/exa-search.jsonc     body of POST /v1/agents
-        + .env              the ${VARS} it references
-           │
-           ▼  npm run publish
-      AGENT_ID_EXA_SEARCH
-           ├──  npm start        browser tab
-           └──  npm run phone    phone number
-```
-
-The first publish sends `POST /v1/agents` and stores the returned ID in `.env` under a key of its own, `AGENT_ID_EXA_SEARCH` for that file. Later publishes send `PUT /v1/agents/{id}`, so the browser tab and the phone number both pick up the change on the next call, and publishing a different file leaves this one alone. A bare `AGENT_ID` overrides every per-file key.
-
-Values written as `${VAR}` anywhere in an agent file are substituted at publish time from `.env`, or from `agents/<name>.env` for credentials only one agent uses. Both files are gitignored, so the JSON can be committed.
-
-## Build with AI coding agents
-
-This repo includes [AGENTS.md](AGENTS.md), which Claude Code, Cursor and Copilot read for its conventions. The Voice Agent API changes, so point coding tools at the current documentation rather than letting them work from memory:
-
-> Always fetch https://assemblyai.com/docs/llms.txt before writing AssemblyAI code. The API has changed, do not rely on memorized parameter names.
-
-```sh
-claude mcp add --transport http --scope user assemblyai-docs https://mcp.assemblyai.com/docs
-npx skills add AssemblyAI/assemblyai-skill --global
-```
-
-See [Build with AI tools](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/build-with-ai-tools) and [Coding agent prompts](https://www.assemblyai.com/docs/coding-agent-prompts).
-
-## Voice Agent API
-
-Product: [Voice Agent API](https://www.assemblyai.com/products/voice-agent-api) · [Pricing](https://www.assemblyai.com/pricing) · [Dashboard](https://www.assemblyai.com/dashboard)
-
-Start here: [Documentation](https://www.assemblyai.com/docs/voice-agents/voice-agent-api) · [Create an agent](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/create-agent) · [Manage agents](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/manage-agents) · [Prompting guide](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/prompting-guide) · [Best practices](https://www.assemblyai.com/docs/voice-agents/best-practices)
-
-Configuration: [Voices](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/voices) · [Greeting](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/greeting) · [Turn detection](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/turn-detection-and-interruptions) · [Keyterms](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/transcription-prompt) · [Languages](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/supported-languages) · [Noise suppression](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/noise-suppression) · [Custom LLM](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/connect-your-own-llm)
-
-Tools: [Overview](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/tools/overview) · [HTTP tools](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/tools/http-tools) · [Client-side tools](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/tools/client-side-tools)
-
-Deployment: [Deploy](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/deploy) · [Browser integration](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/browser-integration) · [Connect to Twilio](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/connect-to-twilio) · [Use your own number](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/twilio-own-number) · [Webhooks](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/webhooks)
-
-Reference: [Session configuration](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/session-configuration) · [Events](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/events-reference) · [Message sequence](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/message-sequence) · [Session history](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/session-history) · [Troubleshooting](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/troubleshooting)
-
-## Cost
-
-Sessions are billed to the API key that published the agent. Anyone with the deployed URL or the phone number can start a session on that key.
+*VoxHire — Making technical interview practice more interactive through AI-powered voice conversations.*
