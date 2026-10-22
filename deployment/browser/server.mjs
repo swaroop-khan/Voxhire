@@ -444,6 +444,7 @@ async function clientApp() {
 
   $('retry-interview').onclick = start
   $('retry-interview-live').onclick = start
+  $('start-again').onclick = start
 
   $('report-button').onclick =
     showInterviewReport
@@ -1030,6 +1031,8 @@ async function clientApp() {
     $('retry-interview').disabled = true
     $('landing').hidden = true
     $('interview-screen').hidden = false
+    $('start-again').hidden = true
+    $('start-again').disabled = true
     $('connection-error').hidden = true
     $('connection-error-live').hidden = true
     $('session-hint').textContent = 'Preparing your interview…'
@@ -2081,6 +2084,8 @@ async function clientApp() {
     $('btn').textContent = 'End interview'
     $('btn').disabled = true
     $('btn').hidden = true
+    $('start-again').hidden = false
+    $('start-again').disabled = false
     $('mic').disabled = false
     $('start-interview').disabled = false
     $('retry-interview').disabled = false
@@ -3425,7 +3430,7 @@ const HTML = `<!DOCTYPE html>
       <div class="voice-orb" id="voice-orb" data-state="idle" aria-hidden="true"><svg viewBox="0 0 72 72" fill="none"><path d="M12 30v12m12-24v36m12-48v60m12-42v24m12-18v12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg></div>
       <h3 id="voice-state" aria-live="polite">Ready when you are</h3><p id="session-hint">Choose Start interview when you’re ready.</p>
       <div class="error-box" id="connection-error-live" role="alert" hidden><p id="connection-error-text-live"></p><button class="secondary" id="retry-interview-live" type="button">Try again</button></div>
-      <div class="session-actions"><label class="mic-control" for="mic">Microphone<select id="mic" aria-label="Select microphone"><option value="">Default microphone</option></select></label><button class="danger" id="btn" type="button" disabled hidden>End interview</button></div>
+      <div class="session-actions"><label class="mic-control" for="mic">Microphone<select id="mic" aria-label="Select microphone"><option value="">Default microphone</option></select></label><button id="start-again" type="button" hidden>Start another interview</button><button class="danger" id="btn" type="button" disabled hidden>End interview</button></div>
     </section>
     <section class="transcript-panel" aria-label="Live conversation transcript"><div class="pane-head"><span>Conversation</span><span class="empty">Live transcript</span></div><div class="pane-body" id="transcript" aria-live="polite" aria-relevant="additions text"><div class="empty">Your conversation will appear here as you speak.</div></div></section>
   </div>
